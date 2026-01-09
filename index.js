@@ -1,26 +1,58 @@
-const WebSocket = require("ws");
+import WebSocket, { WebSocketServer } from "ws";
 
-const PORT = process.env.PORT || 8080;
-const wss = new WebSocket.Server({ port: PORT });
+const PORT = process.env.PORT || 10000;
 
-console.log("WS server running on port", PORT);
+const wss = new WebSocketServer({
+  port: PORT,
+  clientTracking: true,
+  perMessageDeflate: false,
+});
+
+console.log("🔥 WS server running on port", PORT);
 
 wss.on("connection", (ws) => {
-  console.log("Client connected");
+  console.log("📱 Client connected");
+  ws.isAlive = true;
 
-  ws.on("message", (msg) => {
-    const text = msg.toString();
-    console.log("Receive:", text);
+  // BẮT BUỘC: nhận pong
+  ws.on("pong", () => {
+    ws.isAlive = true;
+  });
 
-    // broadcast cho tất cả client
+  ws.on("message", (data) => {
+    const msg = data.toString().trim();
+    console.log("📨 Receive:", msg);
+
+    // broadcast cho TẤT CẢ client
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(text);
+        client.send(msg);
       }
     });
   });
 
   ws.on("close", () => {
-    console.log("Client disconnected");
+    console.log("❌ Client disconnected");
   });
+
+  ws.on("error", (err) => {
+    console.error("WS error:", err);
+  });
+});
+
+// 🔥 KEEP ALIVE (CỨU MẠNG)
+const interval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      console.log("💀 Terminate dead client");
+      return ws.terminate();
+    }
+
+    ws.isAlive = false;
+    ws.ping(); // 👈 ping định kỳ
+  });
+}, 20000);
+
+wss.on("close", () => {
+  clearInterval(interval);
 });
