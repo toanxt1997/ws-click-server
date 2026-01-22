@@ -1,20 +1,33 @@
-import WebSocket, { WebSocketServer } from "ws";
+const http = require("http");
+const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 10000;
 
-const wss = new WebSocketServer({
-  port: PORT,
+/* ================= HTTP SERVER ================= */
+const server = http.createServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("OK");
+    return;
+  }
+
+  res.writeHead(200);
+  res.end("WS Click Server Running");
+});
+
+/* ================= WS SERVER ================= */
+const wss = new WebSocket.Server({
+  server,
   clientTracking: true,
   perMessageDeflate: false,
 });
 
-console.log("🔥 WS server running on port", PORT);
+console.log("🔥 WS + HTTP server running on port", PORT);
 
 wss.on("connection", (ws) => {
   console.log("📱 Client connected");
   ws.isAlive = true;
 
-  // BẮT BUỘC: nhận pong
   ws.on("pong", () => {
     ws.isAlive = true;
   });
@@ -23,7 +36,7 @@ wss.on("connection", (ws) => {
     const msg = data.toString().trim();
     console.log("📨 Receive:", msg);
 
-    // broadcast cho TẤT CẢ client
+    // broadcast cho tất cả client
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(msg);
@@ -40,7 +53,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-// 🔥 KEEP ALIVE (CỨU MẠNG)
+/* ================= KEEP ALIVE ================= */
 const interval = setInterval(() => {
   wss.clients.forEach((ws) => {
     if (ws.isAlive === false) {
@@ -49,10 +62,15 @@ const interval = setInterval(() => {
     }
 
     ws.isAlive = false;
-    ws.ping(); // 👈 ping định kỳ
+    ws.ping();
   });
 }, 20000);
 
 wss.on("close", () => {
   clearInterval(interval);
+});
+
+/* ================= START ================= */
+server.listen(PORT, () => {
+  console.log("🚀 Server listening on port", PORT);
 });
