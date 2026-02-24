@@ -5,6 +5,7 @@ const PORT = process.env.PORT || 10000;
 
 /* ================= HTTP SERVER ================= */
 const server = http.createServer((req, res) => {
+
   if (req.url === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("OK");
@@ -15,62 +16,93 @@ const server = http.createServer((req, res) => {
   res.end("WS Click Server Running");
 });
 
+
 /* ================= WS SERVER ================= */
 const wss = new WebSocket.Server({
   server,
   clientTracking: true,
-  perMessageDeflate: false,
+  perMessageDeflate: false
 });
 
-console.log("🔥 WS + HTTP server running on port", PORT);
+console.log("🔥 WS Server starting...");
 
-wss.on("connection", (ws) => {
-  console.log("📱 Client connected");
+wss.on("connection", (ws, req) => {
+
+  const ip = req.socket.remoteAddress;
+  console.log("📱 Client connected:", ip);
+
   ws.isAlive = true;
 
   ws.on("pong", () => {
     ws.isAlive = true;
   });
 
+
+  /* ===== RECEIVE MESSAGE ===== */
   ws.on("message", (data) => {
+
     const msg = data.toString().trim();
+
+    if (!msg) return;
+
     console.log("📨 Receive:", msg);
 
-    // broadcast cho tất cả client
+    let count = 0;
+
     wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
+
+      // không gửi lại client gửi
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+
         client.send(msg);
+        count++;
       }
+
     });
+
+    console.log("📤 Broadcast to", count, "clients");
+
   });
+
 
   ws.on("close", () => {
-    console.log("❌ Client disconnected");
+    console.log("❌ Client disconnected:", ip);
   });
 
+
   ws.on("error", (err) => {
-    console.error("WS error:", err);
+    console.log("⚠ WS error:", err.message);
   });
+
 });
+
 
 /* ================= KEEP ALIVE ================= */
 const interval = setInterval(() => {
+
   wss.clients.forEach((ws) => {
+
     if (ws.isAlive === false) {
+
       console.log("💀 Terminate dead client");
       return ws.terminate();
+
     }
 
     ws.isAlive = false;
     ws.ping();
+
   });
+
 }, 20000);
+
 
 wss.on("close", () => {
   clearInterval(interval);
 });
 
+
 /* ================= START ================= */
 server.listen(PORT, () => {
-  console.log("🚀 Server listening on port", PORT);
+  console.log("🚀 Server running on port", PORT);
 });
