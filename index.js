@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 10000;
 /* ================= HTTP SERVER ================= */
 const server = http.createServer((req, res) => {
 
-  // Health check (Render hay dùng)
+  // Health check (Render dùng)
   if (req.url.startsWith("/health")) {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("OK");
@@ -47,7 +47,6 @@ wss.on("connection", (ws, req) => {
   ws.on("message", (data) => {
 
     const msg = data.toString().trim();
-
     if (!msg) return;
 
     console.log("📨 Receive:", msg);
