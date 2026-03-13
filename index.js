@@ -6,103 +6,103 @@ const PORT = process.env.PORT || 10000;
 /* ================= HTTP SERVER ================= */
 const server = http.createServer((req, res) => {
 
-  // Health check (Render dùng)
-  if (req.url.startsWith("/health")) {
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("OK");
-    return;
-  }
+// Health check
+if (req.url === "/health") {
+res.writeHead(200, { "Content-Type": "text/plain" });
+res.end("OK");
+return;
+}
 
-  // Trang mặc định
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("WS Click Server Running");
+// Root page
+if (req.url === "/") {
+res.writeHead(200, { "Content-Type": "text/plain" });
+res.end("WS Click Server Running");
+return;
+}
 
+// fallback
+res.writeHead(404, { "Content-Type": "text/plain" });
+res.end("Not Found");
 });
-
 
 /* ================= WS SERVER ================= */
 const wss = new WebSocket.Server({
-  server,
-  clientTracking: true,
-  perMessageDeflate: false
+server,
+clientTracking: true,
+perMessageDeflate: false
 });
 
 console.log("🔥 WS Server starting...");
 
-
-/* ================= CONNECTION ================= */
 wss.on("connection", (ws, req) => {
 
-  const ip = req.socket.remoteAddress;
-  console.log("📱 Client connected:", ip);
+const ip = req.socket.remoteAddress;
+console.log("📱 Client connected:", ip);
 
-  ws.isAlive = true;
+ws.isAlive = true;
 
-  ws.on("pong", () => {
-    ws.isAlive = true;
-  });
+ws.on("pong", () => {
+ws.isAlive = true;
+});
 
+ws.on("message", (data) => {
 
-  /* ===== RECEIVE MESSAGE ===== */
-  ws.on("message", (data) => {
+```
+const msg = data.toString().trim();
+if (!msg) return;
 
-    const msg = data.toString().trim();
-    if (!msg) return;
+console.log("📨 Receive:", msg);
 
-    console.log("📨 Receive:", msg);
+let count = 0;
 
-    let count = 0;
+wss.clients.forEach((client) => {
 
-    wss.clients.forEach((client) => {
-
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(msg);
-        count++;
-      }
-
-    });
-
-    console.log("📤 Broadcast to", count, "clients");
-
-  });
-
-
-  ws.on("close", () => {
-    console.log("❌ Client disconnected:", ip);
-  });
-
-
-  ws.on("error", (err) => {
-    console.log("⚠ WS error:", err.message);
-  });
+  if (client !== ws && client.readyState === WebSocket.OPEN) {
+    client.send(msg);
+    count++;
+  }
 
 });
 
+console.log("📤 Broadcast to", count, "clients");
+```
+
+});
+
+ws.on("close", () => {
+console.log("❌ Client disconnected:", ip);
+});
+
+ws.on("error", (err) => {
+console.log("⚠ WS error:", err.message);
+});
+
+});
 
 /* ================= KEEP ALIVE ================= */
 const interval = setInterval(() => {
 
-  wss.clients.forEach((ws) => {
+wss.clients.forEach((ws) => {
 
-    if (ws.isAlive === false) {
-      console.log("💀 Terminate dead client");
-      return ws.terminate();
-    }
+```
+if (ws.isAlive === false) {
+  console.log("💀 Terminate dead client");
+  return ws.terminate();
+}
 
-    ws.isAlive = false;
-    ws.ping();
+ws.isAlive = false;
+ws.ping();
+```
 
-  });
+});
 
 }, 20000);
 
-
 wss.on("close", () => {
-  clearInterval(interval);
+clearInterval(interval);
 });
-
 
 /* ================= START ================= */
 server.listen(PORT, () => {
-  console.log("🚀 Server running on port", PORT);
+console.log("🚀 Server running on port", PORT);
 });
