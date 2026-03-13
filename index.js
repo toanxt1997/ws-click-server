@@ -3,7 +3,7 @@ const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 10000;
 
-/* ================= HTTP SERVER ================= */
+/* ================= HTTP ================= */
 
 const server = http.createServer((req, res) => {
 
@@ -15,86 +15,91 @@ const server = http.createServer((req, res) => {
 
   res.writeHead(200);
   res.end("WS server running");
-
 });
 
-/* ================= WEBSOCKET ================= */
+/* ================= WS ================= */
 
 const wss = new WebSocket.Server({ server });
 
 console.log("🔥 WS Server starting...");
 
-wss.on("connection", (ws, req) => {
+function broadcast(msg){
 
-  const ip = req.socket.remoteAddress;
-  console.log("Client connected:", ip);
+  wss.clients.forEach(client=>{
+    if(client.readyState === WebSocket.OPEN){
+      try{
+        client.send(msg)
+      }catch(e){}
+    }
+  })
 
-  ws.isAlive = true;
+  setTimeout(()=>{
 
-  ws.on("pong", () => {
-    ws.isAlive = true;
-  });
+    wss.clients.forEach(client=>{
+      if(client.readyState === WebSocket.OPEN){
+        try{
+          client.send(msg)
+        }catch(e){}
+      }
+    })
 
-  ws.on("message", (msg) => {
+  },200)
 
-    const text = msg.toString();
+}
 
-    if (text !== "ping") {
-      console.log("Received:", text);
+wss.on("connection",(ws,req)=>{
+
+  const ip = req.socket.remoteAddress
+  console.log("Client connected:",ip)
+
+  ws.isAlive = true
+
+  ws.on("pong",()=>{
+    ws.isAlive = true
+  })
+
+  ws.on("message",(msg)=>{
+
+    const text = msg.toString()
+
+    if(text !== "ping"){
+      console.log("Received:",text)
     }
 
-    wss.clients.forEach(client => {
+    broadcast(text)
 
-      if (client.readyState === WebSocket.OPEN) {
-        try {
-          client.send(text);
-        } catch (err) {
-          console.log("Send error:", err);
-        }
-      }
+  })
 
-    });
+  ws.on("close",()=>{
+    console.log("Client disconnected:",ip)
+  })
 
-  });
+  ws.on("error",(err)=>{
+    console.log("WS error:",err)
+  })
 
-  ws.on("close", () => {
-    console.log("Client disconnected:", ip);
-  });
-
-  ws.on("error", (err) => {
-    console.log("WS error:", err);
-  });
-
-});
+})
 
 /* ================= KEEP ALIVE ================= */
 
-setInterval(() => {
+setInterval(()=>{
 
-  wss.clients.forEach(ws => {
+  wss.clients.forEach(ws=>{
 
-    if (!ws.isAlive) {
-      console.log("⚠️ Killing dead client");
-      return ws.terminate();
+    if(!ws.isAlive){
+      console.log("⚠️ kill dead client")
+      return ws.terminate()
     }
 
-    ws.isAlive = false;
-    ws.ping();
+    ws.isAlive = false
+    ws.ping()
 
-  });
+  })
 
-}, 25000);
+},25000)
 
-/* ================= RENDER KEEP ALIVE ================= */
+/* ================= START ================= */
 
-setInterval(() => {
-
-  http.get("http://localhost:" + PORT + "/health");
-
-}, 60000);
-
-/* ================= START SERVER ================= */
-
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+server.listen(PORT,()=>{
+  console.log(`🚀 Server running on port ${PORT}`)
+})
