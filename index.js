@@ -6,14 +6,17 @@ const PORT = process.env.PORT || 10000;
 /* ================= HTTP SERVER ================= */
 const server = http.createServer((req, res) => {
 
-  if (req.url === "/health") {
+  // Health check (Render hay dùng)
+  if (req.url.startsWith("/health")) {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("OK");
     return;
   }
 
-  res.writeHead(200);
+  // Trang mặc định
+  res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("WS Click Server Running");
+
 });
 
 
@@ -26,6 +29,8 @@ const wss = new WebSocket.Server({
 
 console.log("🔥 WS Server starting...");
 
+
+/* ================= CONNECTION ================= */
 wss.on("connection", (ws, req) => {
 
   const ip = req.socket.remoteAddress;
@@ -51,9 +56,7 @@ wss.on("connection", (ws, req) => {
 
     wss.clients.forEach((client) => {
 
-      // không gửi lại client gửi
       if (client !== ws && client.readyState === WebSocket.OPEN) {
-
         client.send(msg);
         count++;
       }
@@ -83,10 +86,8 @@ const interval = setInterval(() => {
   wss.clients.forEach((ws) => {
 
     if (ws.isAlive === false) {
-
       console.log("💀 Terminate dead client");
       return ws.terminate();
-
     }
 
     ws.isAlive = false;
