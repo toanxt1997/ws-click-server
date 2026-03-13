@@ -33,28 +33,38 @@ console.log("🔥 WS Server starting...");
 
 wss.on("connection", (ws, req) => {
 
-  console.log("Client connected:", req.socket.remoteAddress);
+  const ip = req.socket.remoteAddress;
+  console.log("Client connected:", ip);
 
   clients.add(ws);
 
   ws.on("message", (message) => {
+
     const msg = message.toString();
     console.log("Received:", msg);
 
-    // broadcast
+    // broadcast message
     clients.forEach(client => {
+
+      if (!client || typeof client.send !== "function") {
+        clients.delete(client);
+        return;
+      }
+
       if (client.readyState === WebSocket.OPEN) {
         try {
           client.send(msg);
-        } catch (e) {
-          console.log("Send error:", e);
+        } catch {
+          clients.delete(client);
         }
       }
+
     });
+
   });
 
   ws.on("close", () => {
-    console.log("Client disconnected");
+    console.log("Client disconnected:", ip);
     clients.delete(ws);
   });
 
@@ -68,17 +78,26 @@ wss.on("connection", (ws, req) => {
 /* ================= KEEP ALIVE ================= */
 
 setInterval(() => {
+
   clients.forEach(ws => {
+
+    if (!ws || typeof ws.send !== "function") {
+      clients.delete(ws);
+      return;
+    }
+
     if (ws.readyState === WebSocket.OPEN) {
       try {
         ws.send("ping");
-      } catch (e) {
+      } catch {
         clients.delete(ws);
       }
     } else {
       clients.delete(ws);
     }
+
   });
+
 }, 30000);
 
 /* ================= START SERVER ================= */
