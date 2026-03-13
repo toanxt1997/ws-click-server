@@ -3,6 +3,8 @@ const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 10000;
 
+/* ================= HTTP SERVER ================= */
+
 const server = http.createServer((req, res) => {
 
   if (req.url === "/health") {
@@ -15,10 +17,9 @@ const server = http.createServer((req, res) => {
   res.end("WS server running");
 });
 
-const wss = new WebSocket.Server({ server });
+/* ================= WEBSOCKET ================= */
 
-let androidClients = new Set();
-let pcClients = new Set();
+const wss = new WebSocket.Server({ server });
 
 console.log("🔥 WS Server starting...");
 
@@ -33,62 +34,47 @@ wss.on("connection", (ws, req) => {
     ws.isAlive = true;
   });
 
-  ws.on("message", (message) => {
+  ws.on("message", (msg) => {
 
-    const msg = message.toString();
+    const text = msg.toString();
 
-    if (msg === "ANDROID") {
-      androidClients.add(ws);
-      console.log("📱 Android registered");
-      return;
+    if (text !== "ping") {
+      console.log("Received:", text);
     }
 
-    if (msg === "PC") {
-      pcClients.add(ws);
-      console.log("💻 PC registered");
-      return;
-    }
+    wss.clients.forEach(client => {
 
-    if (msg === "CLICK_1" || msg === "CLICK_2") {
-
-      console.log("Received:", msg);
-
-      androidClients.forEach(client => {
-
-        if (client.readyState === WebSocket.OPEN) {
-          try {
-            client.send(msg);
-          } catch {}
+      if (client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(text);
+        } catch (err) {
+          console.log("Send error:", err);
         }
+      }
 
-      });
-
-    }
+    });
 
   });
 
   ws.on("close", () => {
     console.log("Client disconnected:", ip);
-    androidClients.delete(ws);
-    pcClients.delete(ws);
   });
 
-  ws.on("error", () => {
-    androidClients.delete(ws);
-    pcClients.delete(ws);
+  ws.on("error", (err) => {
+    console.log("WS error:", err);
   });
 
 });
 
-/* KEEP CONNECTION ALIVE */
+/* ================= KEEP CONNECTION ALIVE ================= */
 
 setInterval(() => {
 
   wss.clients.forEach(ws => {
 
     if (!ws.isAlive) {
-      ws.terminate();
-      return;
+      console.log("⚠️ Killing dead client");
+      return ws.terminate();
     }
 
     ws.isAlive = false;
@@ -97,6 +83,8 @@ setInterval(() => {
   });
 
 }, 25000);
+
+/* ================= START SERVER ================= */
 
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
