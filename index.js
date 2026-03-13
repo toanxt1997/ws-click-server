@@ -15,6 +15,7 @@ const server = http.createServer((req, res) => {
 
   res.writeHead(200);
   res.end("WS server running");
+
 });
 
 /* ================= WEBSOCKET ================= */
@@ -66,7 +67,7 @@ wss.on("connection", (ws, req) => {
 
 });
 
-/* ================= KEEP CONNECTION ALIVE ================= */
+/* ================= KEEP ALIVE ================= */
 
 setInterval(() => {
 
@@ -83,6 +84,14 @@ setInterval(() => {
   });
 
 }, 25000);
+
+/* ================= RENDER KEEP ALIVE ================= */
+
+setInterval(() => {
+
+  http.get("http://localhost:" + PORT + "/health");
+
+}, 60000);
 
 /* ================= START SERVER ================= */
 
