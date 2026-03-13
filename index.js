@@ -3,31 +3,22 @@ const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 10000;
 
-/* ================= HTTP SERVER ================= */
-
 const server = http.createServer((req, res) => {
 
-  if (req.url === "/") {
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("WebSocket server is running");
-    return;
-  }
-
   if (req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.writeHead(200);
     res.end("OK");
     return;
   }
 
-  res.writeHead(404);
-  res.end();
+  res.writeHead(200);
+  res.end("WS server running");
 });
-
-/* ================= WEBSOCKET ================= */
 
 const wss = new WebSocket.Server({ server });
 
-const clients = new Set();
+let androidClients = new Set();
+let pcClients = new Set();
 
 console.log("🔥 WS Server starting...");
 
@@ -36,71 +27,76 @@ wss.on("connection", (ws, req) => {
   const ip = req.socket.remoteAddress;
   console.log("Client connected:", ip);
 
-  clients.add(ws);
+  ws.isAlive = true;
+
+  ws.on("pong", () => {
+    ws.isAlive = true;
+  });
 
   ws.on("message", (message) => {
 
     const msg = message.toString();
-    console.log("Received:", msg);
 
-    // broadcast message
-    clients.forEach(client => {
+    if (msg === "ANDROID") {
+      androidClients.add(ws);
+      console.log("📱 Android registered");
+      return;
+    }
 
-      if (!client || typeof client.send !== "function") {
-        clients.delete(client);
-        return;
-      }
+    if (msg === "PC") {
+      pcClients.add(ws);
+      console.log("💻 PC registered");
+      return;
+    }
 
-      if (client.readyState === WebSocket.OPEN) {
-        try {
-          client.send(msg);
-        } catch {
-          clients.delete(client);
+    if (msg === "CLICK_1" || msg === "CLICK_2") {
+
+      console.log("Received:", msg);
+
+      androidClients.forEach(client => {
+
+        if (client.readyState === WebSocket.OPEN) {
+          try {
+            client.send(msg);
+          } catch {}
         }
-      }
 
-    });
+      });
+
+    }
 
   });
 
   ws.on("close", () => {
     console.log("Client disconnected:", ip);
-    clients.delete(ws);
+    androidClients.delete(ws);
+    pcClients.delete(ws);
   });
 
-  ws.on("error", (err) => {
-    console.log("WS error:", err);
-    clients.delete(ws);
+  ws.on("error", () => {
+    androidClients.delete(ws);
+    pcClients.delete(ws);
   });
 
 });
 
-/* ================= KEEP ALIVE ================= */
+/* KEEP CONNECTION ALIVE */
 
 setInterval(() => {
 
-  clients.forEach(ws => {
+  wss.clients.forEach(ws => {
 
-    if (!ws || typeof ws.send !== "function") {
-      clients.delete(ws);
+    if (!ws.isAlive) {
+      ws.terminate();
       return;
     }
 
-    if (ws.readyState === WebSocket.OPEN) {
-      try {
-        ws.send("ping");
-      } catch {
-        clients.delete(ws);
-      }
-    } else {
-      clients.delete(ws);
-    }
+    ws.isAlive = false;
+    ws.ping();
 
   });
 
-}, 30000);
-
-/* ================= START SERVER ================= */
+}, 25000);
 
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
