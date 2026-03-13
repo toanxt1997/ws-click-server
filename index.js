@@ -33,7 +33,7 @@ console.log("🔥 WS Server starting...");
 
 wss.on("connection", (ws, req) => {
 
-  console.log("Client connected", req.socket.remoteAddress);
+  console.log("Client connected:", req.socket.remoteAddress);
 
   clients.add(ws);
 
@@ -41,10 +41,14 @@ wss.on("connection", (ws, req) => {
     const msg = message.toString();
     console.log("Received:", msg);
 
-    // broadcast cho tất cả client
+    // broadcast
     clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(msg);
+        try {
+          client.send(msg);
+        } catch (e) {
+          console.log("Send error:", e);
+        }
       }
     });
   });
@@ -56,7 +60,9 @@ wss.on("connection", (ws, req) => {
 
   ws.on("error", (err) => {
     console.log("WS error:", err);
+    clients.delete(ws);
   });
+
 });
 
 /* ================= KEEP ALIVE ================= */
@@ -64,7 +70,13 @@ wss.on("connection", (ws, req) => {
 setInterval(() => {
   clients.forEach(ws => {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send("ping");
+      try {
+        ws.send("ping");
+      } catch (e) {
+        clients.delete(ws);
+      }
+    } else {
+      clients.delete(ws);
     }
   });
 }, 30000);
